@@ -1,7 +1,7 @@
 #![allow(dead_code, unused)]
-use std::collections::HashMap;
 use crate::board::*;
-struct Player { //implements a real life player interface - what he has, sees, and can do - controlled by Game; used for humans and ai agents
+use std::collections::HashMap;
+pub struct Player { //implements a real life player interface - what he has, sees, and can do - controlled by Game; used for humans and ai agents
     pub number: PlayerNumber,
 
     pub victory_points: u8,

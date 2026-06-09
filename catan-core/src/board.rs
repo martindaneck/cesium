@@ -3,8 +3,9 @@
 use serde::Deserialize;
 use serde_json::Value;
 use std::fs::File;
+use std::collections::HashMap;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ResourceType {None, Generic, Wheat, Ore, Sheep, Brick, Wood}
 
 impl From<&str> for ResourceType {
@@ -21,40 +22,70 @@ impl From<&str> for ResourceType {
     }
 }
 
+#[derive(Debug, PartialEq)]
 pub enum DevelopmentCardType {Invention, Monopoly, RoadBuilding, VictoryPoint, Knight}
-pub enum PlayerNumber {None, Player1, Player2, Player3, Player4}
+#[derive(Debug, PartialEq)]
+pub enum PlayerNumber {Player1, Player2, Player3, Player4, None}
 
-struct Node {
+pub struct Node {
     id: u8, // id
-    neighbours: Vec<u8>, // neighbouring nodes
-    roads: Vec<u8>, // neighbouring roads
-    hexes: Vec<u8>, // neighbouring resource hexes
-    port: ResourceType,
-    occupant: PlayerNumber,
-    city: bool, 
+    pub neighbours: Vec<u8>, // neighbouring nodes
+    pub roads: Vec<u8>, // neighbouring roads
+    pub hexes: Vec<u8>, // neighbouring resource hexes
+    pub port: ResourceType,
+    pub occupant: PlayerNumber,
+    pub city: bool, 
 }
 
-struct Hex {
+pub struct Hex {
     id: u8,
-    neighbours: Vec<u8>, // neighbouring hexes
-    nodes: Vec<u8>, // neighbouring nodes
-    resource: ResourceType,
-    dice_number: u8,
+    pub neighbours: Vec<u8>, // neighbouring hexes
+    pub nodes: Vec<u8>, // neighbouring nodes
+    pub resource: ResourceType,
+    pub dice_number: u8,
+    pub robber: bool,
 }
 
-struct Road {
+pub struct Road {
     id: u8,
     nodes: [u8;2], // two nodes it connects
     occupant: PlayerNumber,
 }
 
-struct Board {
-    nodes: Vec<Node>,
-    roads: Vec<Road>,
-    hexes: Vec<Hex>,
+pub struct Supply {
+    pub resources: HashMap<ResourceType, u8>,
+    pub development_cards: Vec<DevelopmentCardType> // for random choosing and popping
+}
+
+pub struct Board {
+    pub nodes: Vec<Node>,
+    pub roads: Vec<Road>,
+    pub hexes: Vec<Hex>,
+    pub supply: Supply
 }
 
 impl Board {
+
+    fn create_supply() -> Supply {
+        let mut resources: HashMap<ResourceType, u8> = HashMap::new();
+        resources.insert(ResourceType::Wheat, 0);
+        resources.insert(ResourceType::Ore, 0);
+        resources.insert(ResourceType::Sheep, 0);
+        resources.insert(ResourceType::Brick, 0);
+        resources.insert(ResourceType::Wood, 0);
+        
+        let mut development_cards: Vec<DevelopmentCardType> = Vec::new();
+        development_cards.push(DevelopmentCardType::Invention);
+        development_cards.push(DevelopmentCardType::Monopoly);
+        development_cards.push(DevelopmentCardType::RoadBuilding);
+        development_cards.push(DevelopmentCardType::VictoryPoint);
+        development_cards.push(DevelopmentCardType::Knight);
+
+        Supply {
+            resources,
+            development_cards
+        }
+    }
     pub fn from_json(path: &str) -> Self {
         let file = File::open(path).unwrap();
         let json: Value = serde_json::from_reader(file).unwrap();
@@ -123,20 +154,27 @@ impl Board {
                 .collect();
             let resource = ResourceType::from(hex["type"].as_str().unwrap());
             let dice_number = hex["dice_number"].as_u64().unwrap() as u8;
+            let mut robber = resource == ResourceType::None; // desert        
 
             hexes.push(Hex {
                 id,
                 neighbours,
                 nodes,
                 resource,
-                dice_number
+                dice_number,
+                robber
             });
         }
+
+        // supply
+        let supply = Board::create_supply();
+
 
         Self {
             nodes,
             roads,
-            hexes
+            hexes,
+            supply
         }
     }
 }

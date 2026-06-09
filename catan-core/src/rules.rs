@@ -1,18 +1,18 @@
 #![allow(dead_code, unused)]
-struct Rules {
-    players: u8,
-    robber: bool, // if false, 7 rerolls die
-    settlement_distance_rule: bool,
-    infinite_resource_supply: bool, 
-    public_resources: bool,
-    player_trade: bool,
-    win_condition_points: u8, // 10 for standard rules, 0 for player has to exhaust all buildings to build to trigger end of game
-    collect_start_resources: bool, // player starts with resources collected from second placed settlement
-    instant_card_use: bool // determines whether development cards are used immediately or have to be developed for a turn and kept
+pub struct Rules {
+    pub players: u8,
+    pub robber: bool, // if false, 7 rerolls die
+    pub settlement_distance_rule: bool,
+    pub infinite_resource_supply: bool, 
+    pub public_resources: bool,
+    pub player_trade: bool,
+    pub win_condition_points: u8, // 10 for standard rules, 0 for player has to exhaust all buildings to build to trigger end of game
+    pub collect_start_resources: bool, // player starts with resources collected from second placed settlement
+    pub instant_card_use: bool // determines whether development cards are used immediately or have to be developed for a turn and kept
 }
 
 impl Rules {
-    fn my_rules() -> Rules { // rules with which i play myself
+    pub fn my_rules() -> Rules { // rules with which i play myself
         Rules {
             players: 2,
             robber: false,
@@ -26,7 +26,7 @@ impl Rules {
         }
     }
 
-    fn standard_rules(players: u8) -> Rules { // follows catan rulebook
+    pub fn standard_rules(players: u8) -> Rules { // follows catan rulebook
         Rules {
             players,
             robber: true,
