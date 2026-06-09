@@ -2,7 +2,6 @@
 
 use rand::prelude::*;
 
-use crate::board::PlayerNumber::None;
 use crate::board::*;
 use crate::rules::*;
 use crate::rules::*;
@@ -13,7 +12,7 @@ pub struct Game {
     rules: Rules,
     players: Vec<Player>,
 
-    current_player: u8, // index for players
+    current_player: usize, // index for players
     round: u16,
 
     rng: ThreadRng // for dice throwing
@@ -31,17 +30,28 @@ impl Game {
         }
     }
 
+    pub fn create_view(&self, player: usize) -> PlayerView { // all available info for player -> used for observation tensor / GUI
+        PlayerView { 
+            // TODO
+        }
+    }
+
     pub fn round(&mut self) { // do while game is not over
-        let handle_robber = self.roll_dice();
+        /// production phase
+        if !self.rules.turn_start_roll_dice { 
+            // play development card (optional)
+        }
+
+        // roll the dice
+        let resolve_seven = self.roll_dice();
 
         // move robber if 7 is rolled
-        if handle_robber {
-            self.handle_robber();
+        if resolve_seven {
+            self.resolve_seven();
         }
         
-        // player actions loop
-        // while player_didnt_finish
-        //     player_action
+        // action phase
+        // trade/build stuff/development cards/spam VP cards
         // check win condition
 
         // do for all players
@@ -90,14 +100,15 @@ impl Game {
                 if *owner == PlayerNumber::None { continue; }
                 let owner = owner as *const PlayerNumber as usize;
 
-                *self.players[owner].resources.get_mut(&resource).unwrap() += 1 + *city as u8;
+                *self.players[owner].state.resources.get_mut(&resource).unwrap() += 1 + *city as u8;
             }
         }
 
-        return false;
+        return false; // don't handle robber
     }
 
-    pub fn handle_robber(&mut self) {
+    pub fn resolve_seven(&mut self) {
+        // prompt players to give away resources
         // move robber
     }
 }

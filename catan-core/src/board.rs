@@ -75,11 +75,12 @@ impl Board {
         resources.insert(ResourceType::Wood, 0);
         
         let mut development_cards: Vec<DevelopmentCardType> = Vec::new();
-        development_cards.push(DevelopmentCardType::Invention);
-        development_cards.push(DevelopmentCardType::Monopoly);
-        development_cards.push(DevelopmentCardType::RoadBuilding);
-        development_cards.push(DevelopmentCardType::VictoryPoint);
-        development_cards.push(DevelopmentCardType::Knight);
+        for _ in 0..2 { development_cards.push(DevelopmentCardType::Invention); }
+        for _ in 0..2 { development_cards.push(DevelopmentCardType::Monopoly); }
+        for _ in 0..2 { development_cards.push(DevelopmentCardType::RoadBuilding); }
+        for _ in 0..5 { development_cards.push(DevelopmentCardType::VictoryPoint); }
+        for _ in 0..14 { development_cards.push(DevelopmentCardType::Knight); }
+        // TODO: shuffle
 
         Supply {
             resources,
@@ -90,7 +91,7 @@ impl Board {
         let file = File::open(path).unwrap();
         let json: Value = serde_json::from_reader(file).unwrap();
                 
-        // json is rather complicated and inconsistent, so parse manually
+        // json has different naming and incomplete information, so parse manually and fill
         let mut nodes: Vec<Node> = Vec::new();
         let mut roads: Vec<Road> = Vec::new();
         let mut hexes: Vec<Hex> = Vec::new();
