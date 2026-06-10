@@ -1,10 +1,35 @@
 #![allow(dead_code, unused)]
-use crate::board::*;
+use crate::{board::*, player};
 use std::collections::HashMap;
 
 pub struct Player { // implements a player - tracks its state + prompts for decisions
     pub state: PlayerState,
     pub controller: Box<dyn PlayerController>,
+}
+
+impl Player { 
+    pub fn new(controller: Box<dyn PlayerController>, player_number: PlayerNumber) -> Player {
+        let mut resources: HashMap<ResourceType, u8> = HashMap::new(); // TODO: add resources
+
+        Player {
+            state: PlayerState {
+                number: player_number,
+                victory_points: 0,
+                resources,
+                settlements: Vec::new(),
+                cities: Vec::new(),
+                roads: Vec::new(),
+                ports: Vec::new(),
+                longest_road: 0,
+                largest_army: 0,
+                has_longest_road: false,
+                has_largest_army: false,
+                developing_card: None,
+                developed_cards: Vec::new(),
+            },
+            controller: controller
+        }
+    }
 }
 
 pub struct PlayerState { //implements a player state - everything he owns/has or is unique to it
@@ -23,7 +48,7 @@ pub struct PlayerState { //implements a player state - everything he owns/has or
     pub has_longest_road: bool, // the VP card
     pub has_largest_army: bool, // the VP card
 
-    pub developing_card: DevelopmentCardType,
+    pub developing_card: Option<DevelopmentCardType>,
     pub developed_cards: Vec<DevelopmentCardType>,
 }
 

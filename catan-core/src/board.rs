@@ -1,9 +1,12 @@
 #![allow(dead_code, unused)]
 
+use std::ops::{Index, IndexMut};
 use serde::Deserialize;
 use serde_json::Value;
 use std::fs::File;
 use std::collections::HashMap;
+
+use crate::player::*;
 
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ResourceType {None, Generic, Wheat, Ore, Sheep, Brick, Wood}
@@ -22,13 +25,58 @@ impl From<&str> for ResourceType {
     }
 }
 
+pub enum Building {
+    Road,
+    Settlement,
+    City,
+    DevelopmentCard,
+}
+
+impl Building {
+    pub fn cost(&self) -> HashMap<ResourceType, u8> { 
+        match self {
+            Building::Road => HashMap::from([ (ResourceType::Wheat, 1), (ResourceType::Sheep, 1), ]),
+            Building::Settlement => HashMap::from([ (ResourceType::Wheat, 1), (ResourceType::Sheep, 1), (ResourceType::Brick, 1), (ResourceType::Wood, 1), ]),
+            Building::City => HashMap::from([ (ResourceType::Wheat, 2), (ResourceType::Ore, 3), ]),
+            Building::DevelopmentCard => HashMap::from([ (ResourceType::Wheat, 1), (ResourceType::Ore, 1), (ResourceType::Sheep, 1) ]),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum DevelopmentCardType {Invention, Monopoly, RoadBuilding, VictoryPoint, Knight}
-#[derive(Debug, PartialEq)]
-pub enum PlayerNumber {Player1, Player2, Player3, Player4, None}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlayerNumber {Player1, Player2, Player3, Player4, None} // stuff ownership logic & indexing for Vec<Player>
+
+impl PlayerNumber { 
+    fn index(self) -> usize {
+        match self {
+            PlayerNumber::Player1 => 0,
+            PlayerNumber::Player2 => 1,
+            PlayerNumber::Player3 => 2,
+            PlayerNumber::Player4 => 3,
+            PlayerNumber::None => panic!("Cannot index with None"),
+        }
+    }
+}
+
+impl Index<PlayerNumber> for Vec<Player> {
+    type Output = Player;
+
+    fn index(&self, index: PlayerNumber) -> &Self::Output {
+        &self[index.index()]
+    }
+}
+
+impl IndexMut<PlayerNumber> for Vec<Player> {
+    fn index_mut(&mut self, index: PlayerNumber) -> &mut Self::Output {
+        &mut self[index.index()]
+    }
+}
 
 pub struct Node {
-    id: u8, // id
+    pub id: u8, // id
     pub neighbours: Vec<u8>, // neighbouring nodes
     pub roads: Vec<u8>, // neighbouring roads
     pub hexes: Vec<u8>, // neighbouring resource hexes
@@ -38,7 +86,7 @@ pub struct Node {
 }
 
 pub struct Hex {
-    id: u8,
+    pub id: u8,
     pub neighbours: Vec<u8>, // neighbouring hexes
     pub nodes: Vec<u8>, // neighbouring nodes
     pub resource: ResourceType,
@@ -47,9 +95,9 @@ pub struct Hex {
 }
 
 pub struct Road {
-    id: u8,
-    nodes: [u8;2], // two nodes it connects
-    occupant: PlayerNumber,
+    pub id: u8,
+    pub nodes: [u8;2], // two nodes it connects
+    pub occupant: PlayerNumber,
 }
 
 pub struct Supply {
