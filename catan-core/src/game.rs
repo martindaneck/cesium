@@ -13,7 +13,7 @@ pub struct Game {
     players: Vec<Player>,
     players_ordering: Vec<PlayerNumber>,
 
-    current_player: usize, // index for players
+    current_player: usize, // index for players through players_ordering
     round: u16,
 
     rng: ThreadRng // for dice throwing
@@ -53,44 +53,76 @@ impl Game {
         }
     }
 
-    pub fn round(&mut self) { // do while game is not over
-        /// production phase
+    pub fn round(&mut self) { // all players have a turn
+        self.current_player = 0; 
+
+        // handle starting rounds
+        if self.round == 0 { // first round
+            for _ in 0..self.players_ordering.len() {
+                self.starting_turn();
+                self.current_player += 1;
+                self.round += 1;
+                return;
+            }
+        } else if self.round == 1 { // second round
+            for _ in 0..self.players_ordering.len() {
+                self.current_player = self.players_ordering.len() - 1;
+                self.starting_turn(); 
+                if self.rules.collect_start_resources { self.collect_starting_resources(); }
+                self.current_player = self.current_player - 1;
+                self.round += 1;
+                return;
+            }
+        }
+
+        // regular rounds
+        for _ in 0..self.players_ordering.len() {
+            self.turn();
+            self.current_player += 1;
+            self.round += 1;
+        }
+    }
+
+    pub fn starting_turn(&mut self) {
+        // choose free settlement
+        // choose free road
+    }
+
+    pub fn turn(&mut self) { // all a player does in their turn
+        // production phase
         if !self.rules.turn_start_roll_dice { 
             // play development card (optional)
         }
 
         // roll the dice
-        let resolve_seven = self.roll_dice();
+        let roll = self.roll_dice();
 
-        // move robber if 7 is rolled
-        if resolve_seven {
+        if roll == 7 {
             self.resolve_seven();
+        } else {
+            self.collect_resources(roll);
         }
         
         // action phase
         // trade/build stuff/development cards/spam VP cards
         // check win condition
-
-        // do for all players
     }
 
-    pub fn roll_dice(&mut self) -> bool {
+    pub fn roll_dice(&mut self) -> u8 {
         // roll of dice
         let mut dice1: u8 = self.rng.random_range(1..=6);
         let mut dice2: u8 = self.rng.random_range(1..=6);
 
-        while dice1 + dice2 == 7 && !self.rules.robber { // if not playing with robber, until not 7
+        while dice1 + dice2 == 7 && !self.rules.robber { // if not playing with robber, roll until not 7
             dice1 = self.rng.random_range(1..=6);
             dice2 = self.rng.random_range(1..=6);
         }
 
-        let roll = dice1 + dice2;
+        // return sum
+        dice1 + dice2
+    }
 
-        if roll == 7 {
-            // handle robber
-            return true;
-        }
-
+    pub fn collect_resources(&mut self, roll: u8) {
         // collect resources
         for hex in self.board.hexes.iter() {
             if roll != hex.dice_number { continue; }
@@ -119,8 +151,10 @@ impl Game {
                 *self.players[*owner].state.resources.get_mut(&resource).unwrap() += 1 + *city as u8;
             }
         }
+    }
 
-        return false; // don't handle robber
+    pub fn collect_starting_resources(&mut self) {
+        // collect starting resources
     }
 
     pub fn resolve_seven(&mut self) {
