@@ -9,7 +9,13 @@ pub struct Player { // implements a player - tracks its state + prompts for deci
 
 impl Player { 
     pub fn new(controller: Box<dyn PlayerController>, player_number: PlayerNumber) -> Player {
-        let mut resources: HashMap<ResourceType, u8> = HashMap::new(); // TODO: add resources
+        let mut resources = HashMap::from([
+                (ResourceType::Wheat, 0),
+                (ResourceType::Ore, 0),
+                (ResourceType::Sheep, 0),
+                (ResourceType::Brick, 0),
+                (ResourceType::Wood, 0),
+            ]);
 
         Player {
             state: PlayerState {

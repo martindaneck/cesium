@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use crate::player::*;
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum ResourceType {None, Generic, Wheat, Ore, Sheep, Brick, Wood}
 
 impl From<&str> for ResourceType {
@@ -43,7 +43,7 @@ impl Building {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Copy, Clone)]
 pub enum DevelopmentCardType {Invention, Monopoly, RoadBuilding, VictoryPoint, Knight}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

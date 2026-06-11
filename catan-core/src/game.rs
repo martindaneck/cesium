@@ -130,12 +130,14 @@ impl Game {
 
 
     // LEGALITY LOGIC
-    pub fn list_legal_settelements(&self, game_start: bool) -> Vec<PlayerResponse> {
+    pub fn list_legal_settlements(&self, game_start: bool) -> Vec<PlayerResponse> {
         let mut legal_settlements = Vec::new();
 
         if !game_start { // don't check cost if first or second round
-            for resource_type in Building::Settlement.cost().keys() {
-                if self.players[ self.players_ordering[self.current_player] ].state.resources[resource_type] < Building::Settlement.cost()[resource_type] {
+            let cost = Building::Settlement.cost();
+
+            for resource_type in cost.keys() {
+                if self.players[ self.players_ordering[self.current_player] ].state.resources[resource_type] < cost[resource_type] {
                     return legal_settlements; // player broke, can't build settlement, return empty vector
                 }
             }
@@ -155,20 +157,124 @@ impl Game {
                 continue;
             }
 
-            let mut node_reachable = false;
-            for road in node.roads.iter() {
-                if self.board.roads[*road as usize].occupant == self.players_ordering[self.current_player] {
-                    node_reachable = true;
-                    break;
-                }
-            }
-
-            if node_reachable {
+            // check if player has road to node
+            if node.roads.iter().any(|road| self.board.roads[*road as usize].occupant == self.players_ordering[self.current_player]) {
                 legal_settlements.push(PlayerResponse::BuildSettlement(node.id));
             }
         }
 
         legal_settlements
     }
-    
+
+
+    pub fn list_legal_roads(&self, free_road: bool) -> Vec<PlayerResponse> {
+        let mut legal_roads = Vec::new();
+
+        if !free_road {
+            let cost = Building::Road.cost();
+
+            for resource_type in cost.keys() {
+                if self.players[ self.players_ordering[self.current_player] ].state.resources[resource_type] < cost[resource_type] {
+                    return legal_roads; // player broke, can't build road, return empty vector
+                }
+            }
+        }
+
+        for road in self.board.roads.iter() {
+            if road.occupant != PlayerNumber::None { continue; } // already occupied
+
+            // check if player has settlement next to road
+            if road.nodes.iter().any(|node| self.board.nodes[*node as usize].occupant == self.players_ordering[self.current_player]) {
+                legal_roads.push(PlayerResponse::BuildRoad(road.id));
+            }
+        }
+
+        legal_roads
+    }
+
+    pub fn list_legal_cities(&self) -> Vec<PlayerResponse> {
+        let mut legal_cities = Vec::new();
+
+        // cost check
+        let cost = Building::City.cost();
+        for resource_type in cost.keys() {
+            if self.players[ self.players_ordering[self.current_player] ].state.resources[resource_type] < cost[resource_type] {
+                return legal_cities; // player broke, can't build city, return empty vector
+            }
+        }
+
+        // has to build on settlement
+        for node in self.board.nodes.iter() {
+            if node.occupant == self.players_ordering[self.current_player] && !node.city { 
+                legal_cities.push(PlayerResponse::BuildCity(node.id));
+             }
+        }
+
+        legal_cities
+    }
+
+    pub fn can_buy_development_card(&self) -> Vec<PlayerResponse> {
+        let mut card_legal = Vec::new();
+
+        let cost = Building::DevelopmentCard.cost();
+        for resource_type in cost.keys() {
+            if self.players[ self.players_ordering[self.current_player] ].state.resources[resource_type] < cost[resource_type] {
+                return card_legal; // player broke, can't buy development card, return empty vector
+            }
+        }
+
+        card_legal.push(PlayerResponse::BuyDevelopmentCard);
+
+        card_legal
+    }
+
+    pub fn list_legal_development_cards(&self) -> Vec<PlayerResponse> {
+        let mut legal_development_cards = Vec::new();
+
+        let cards = &self.players[ self.players_ordering[self.current_player] ].state.developed_cards;
+
+        for card in cards.iter(){
+            legal_development_cards.push(PlayerResponse::UseDevelopmentCard(*card));
+        }
+
+        legal_development_cards
+    }
+
+    pub fn list_legal_supply_trades(&self) -> Vec<PlayerResponse> {
+        let mut legal_supply_trades = Vec::new();
+
+        let owned_resources = &self.players[ self.players_ordering[self.current_player] ].state.resources;
+
+        let ports = &self.players[ self.players_ordering[self.current_player] ].state.ports;
+
+        for resource_type in owned_resources.keys() { // create trade actions for each resource possible given away
+            let cost = if ports.contains(resource_type) {
+                2
+            } else if ports.contains(&ResourceType::Generic) {
+                3
+            } else {
+                4
+            };
+
+            // check if player has enough of resource to trade
+            if owned_resources[resource_type] < cost { continue; } 
+
+            for resource_type_to_receive in owned_resources.keys() {
+                if resource_type_to_receive != resource_type {
+                    legal_supply_trades.push(PlayerResponse::SupplyTrade(*resource_type, *resource_type_to_receive));
+                }
+            }
+            
+        }
+
+        legal_supply_trades
+    }
+
+    pub fn list_legal_player_trades(&self) -> Vec<PlayerResponse> {
+        let mut legal_player_trades = Vec::new();
+
+        // TODO, implement and deal with player trades later
+
+        legal_player_trades
+    }
 }
