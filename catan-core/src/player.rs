@@ -118,9 +118,10 @@ pub enum PlayerRequest {
     DiscardResources(u8), // discard X resources
     RespondToTrade,
     MoveRobber,
+    StealResource,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq)]
 pub enum PlayerResponse {
     // turn decisions
     EndTurn,
@@ -136,4 +137,5 @@ pub enum PlayerResponse {
     DiscardResource(ResourceType), // discard a resource when prompted
     MoveRobber(u8), // hex id
     RespondToPlayerTrade(bool), // true = accept, false = reject
+    StealResource(usize), // player index
 }

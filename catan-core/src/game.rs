@@ -177,7 +177,6 @@ impl Game {
             if n_resources <= 7 { continue; }
 
             let mut n_resources_to_discard = n_resources / 2;
-
             
             for i in 0..n_resources_to_discard {
                 let actions = vec![ResourceType::Wheat, ResourceType::Sheep, ResourceType::Wood, ResourceType::Brick, ResourceType::Ore]// each resource type
@@ -214,7 +213,45 @@ impl Game {
         }
 
         // steal resource
-        // TODO
+        let mut actions = Vec::new();
+
+        for p in 0..self.players.len() {
+            for node in self.board.hexes[self.board.robber as usize].nodes.iter() {
+                if self.players_ordering[p] != PlayerNumber::None // if a different player has a settlement next to robber
+                    && self.players_ordering[p] != self.players_ordering[self.current_player]
+                    && !actions.contains(&PlayerResponse::StealResource(p)) // and said player isn't already in actions
+                {
+                    actions.push(PlayerResponse::StealResource(p));
+                }
+            }
+        }
+
+        // return if no players to steal from
+        if actions.is_empty() { return; }
+
+        let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+            self.create_view(self.current_player), 
+            Decision { 
+                request: PlayerRequest::StealResource, 
+                legal_responses: actions }
+        );
+
+        if let PlayerResponse::StealResource(p) = action {
+            let mut choices = Vec::new();
+
+            for (&resource, &count) in &self.players[ self.players_ordering[p] ].state.resources {
+                for _ in 0..count {
+                    choices.push(resource);
+                }
+            }
+
+            // return if no stealable resources
+            if choices.is_empty() { return; }
+
+            let picked = choices.choose(&mut self.rng).unwrap();
+            *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(picked).unwrap() += 1;
+            *self.players[ self.players_ordering[p] ].state.resources.get_mut(picked).unwrap() -= 1;
+        }
     }
 
 
