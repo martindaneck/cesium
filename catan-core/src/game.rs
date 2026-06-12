@@ -47,8 +47,9 @@ impl Game {
         }
     }
 
-    pub fn create_view(&self, player: usize) -> PlayerView { // all available info for player -> used for observation tensor / GUI
-        PlayerView { 
+    pub fn create_view(&self, p_index: usize) -> &PlayerView { // all available info for player -> used for observation tensor / GUI
+
+        &PlayerView { 
             // TODO
         }
     }
@@ -85,7 +86,19 @@ impl Game {
 
     pub fn starting_turn(&mut self) {
         // choose free settlement
+        self.players[ self.players_ordering[self.current_player] ].controller.respond(
+            self.create_view(self.current_player), 
+            Decision { 
+                request: (PlayerRequest::InitialSettlement), 
+                legal_responses: self.list_legal_settlements(true) }
+        );
         // choose free road
+        self.players[ self.players_ordering[self.current_player] ].controller.respond(
+            self.create_view(self.current_player), 
+            Decision { 
+                request: (PlayerRequest::InitialRoad), 
+                legal_responses: self.list_legal_roads(true) }
+        );
     }
 
     pub fn turn(&mut self) { // all a player does in their turn
@@ -127,7 +140,7 @@ impl Game {
         for hex in self.board.hexes.iter() {
             if roll != hex.dice_number { continue; }
 
-            if hex.robber { continue; } // if robber on hex dont give resources
+            if hex.id == self.board.robber { continue; } // if robber on hex dont give resources
 
             let resource: &ResourceType = &hex.resource;
 
@@ -159,7 +172,49 @@ impl Game {
 
     pub fn resolve_seven(&mut self) {
         // prompt players to give away resources
+        for p in 0..self.players.len() {
+            let n_resources = self.players[ self.players_ordering[p] ].state.resources.values().sum::<u8>();
+            if n_resources <= 7 { continue; }
+
+            let mut n_resources_to_discard = n_resources / 2;
+
+            
+            for i in 0..n_resources_to_discard {
+                let actions = vec![ResourceType::Wheat, ResourceType::Sheep, ResourceType::Wood, ResourceType::Brick, ResourceType::Ore]// each resource type
+                            .into_iter()
+                            .filter(|r| self.players[ self.players_ordering[p] ].state.resources[r] > 0)
+                            .map(|r| PlayerResponse::DiscardResource(r))
+                            .collect();
+
+                let action = self.players[ self.players_ordering[p] ].controller.respond(
+                    self.create_view(i as usize), 
+                    Decision { 
+                        request: PlayerRequest::DiscardResources(n_resources_to_discard - i), 
+                        legal_responses: actions
+                    }
+                );         
+
+                if let PlayerResponse::DiscardResource(resource) = action {
+                    *self.players[ self.players_ordering[p] ].state.resources.get_mut(&resource).unwrap() -= 1;
+                }
+            }
+        }
+
         // move robber
+        let actions = self.list_legal_hexes();
+        let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+            self.create_view(self.current_player), 
+            Decision { 
+                request: PlayerRequest::MoveRobber, 
+                legal_responses: actions }
+        );
+
+        if let PlayerResponse::MoveRobber(hex_id) = action {
+            self.board.robber = hex_id;
+        }
+
+        // steal resource
+        // TODO
     }
 
 
@@ -245,6 +300,15 @@ impl Game {
         }
 
         legal_cities
+    }
+
+    pub fn list_legal_hexes(&self) -> Vec<PlayerResponse> { // for moving robber
+        let mut legal_hexes = self.board.hexes.iter()
+            .filter(|hex| hex.id != self.board.robber)
+            .map(|hex| PlayerResponse::MoveRobber(hex.id))
+            .collect();
+
+        legal_hexes
     }
 
     pub fn can_buy_development_card(&self) -> Vec<PlayerResponse> {

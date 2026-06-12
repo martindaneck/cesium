@@ -70,38 +70,38 @@ pub struct PlayerView { // everything a player can see from the whole game state
 
 pub trait PlayerController { // interface for decision making
     fn respond(
-        &mut self, // this doesn't need to be mutable in my case i think
+        &self, // this can't be mutable
         view: &PlayerView,
         decision: Decision
-    ) -> usize; // index into decision.legal_responses
+    ) -> PlayerResponse; // chosen response
 }
 
 pub struct HumanController; // Human interface for decision making - GUI
 impl PlayerController for HumanController {
     fn respond(
-        &mut self, 
+        &self, 
         view: &PlayerView,
         decision: Decision
-    ) -> usize { // index into decision.legal_responses
+    ) -> PlayerResponse { // index into decision.legal_responses
         // TODO
         // draw everything 
         // read input
-        0
+        decision.legal_responses[0]
     }
 }
 
 pub struct AIController; // AI interface for decision making - PPO
 impl PlayerController for AIController {
     fn respond(
-        &mut self, 
+        &self, 
         view: &PlayerView,
         decision: Decision
-    ) -> usize { // index into decision.legal_responses
+    ) -> PlayerResponse {
         // TODO
         // serialize everything into tensors
         // read from ppo network 
         // deserialize response back into index of legal responses
-        0
+        decision.legal_responses[0]
     }
 }
 
@@ -119,6 +119,8 @@ pub enum PlayerRequest {
     RespondToTrade,
     MoveRobber,
 }
+
+#[derive(Copy, Clone)]
 pub enum PlayerResponse {
     // turn decisions
     EndTurn,
@@ -131,7 +133,7 @@ pub enum PlayerResponse {
     UseDevelopmentCard(DevelopmentCardType),
 
     // special decisions
-    DiscardResources(u8), // discard X resources when prompted
+    DiscardResource(ResourceType), // discard a resource when prompted
     MoveRobber(u8), // hex id
     RespondToPlayerTrade(bool), // true = accept, false = reject
 }

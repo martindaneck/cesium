@@ -87,11 +87,9 @@ pub struct Node {
 
 pub struct Hex {
     pub id: u8,
-    pub neighbours: Vec<u8>, // neighbouring hexes
     pub nodes: Vec<u8>, // neighbouring nodes
     pub resource: ResourceType,
     pub dice_number: u8,
-    pub robber: bool,
 }
 
 pub struct Road {
@@ -109,6 +107,7 @@ pub struct Board {
     pub nodes: Vec<Node>,
     pub roads: Vec<Road>,
     pub hexes: Vec<Hex>,
+    pub robber: u8, // hex id
     pub supply: Supply
 }
 
@@ -143,6 +142,7 @@ impl Board {
         let mut nodes: Vec<Node> = Vec::new();
         let mut roads: Vec<Road> = Vec::new();
         let mut hexes: Vec<Hex> = Vec::new();
+        let mut robber: u8 = 0; // changed to id of desert tile
 
         // nodes
         for node in json["village_spots"].as_array().unwrap() {
@@ -193,25 +193,19 @@ impl Board {
         // hexes
         for hex in json["resource_hexes"].as_array().unwrap() {
             let id = hex["id"].as_u64().unwrap() as u8;
-            let neighbours: Vec<u8> = hex["adjacent_hexes"].as_array().unwrap()
-                .iter()
-                .map(|n| n.as_u64().unwrap() as u8)
-                .collect();
             let nodes: Vec<u8> = hex["village_spots"].as_array().unwrap()
                 .iter()
                 .map(|n| n.as_u64().unwrap() as u8)
                 .collect();
             let resource = ResourceType::from(hex["type"].as_str().unwrap());
             let dice_number = hex["dice_number"].as_u64().unwrap() as u8;
-            let mut robber = resource == ResourceType::None; // desert        
+            if resource == ResourceType::None { robber = id; } // desert        
 
             hexes.push(Hex {
                 id,
-                neighbours,
                 nodes,
                 resource,
                 dice_number,
-                robber
             });
         }
 
@@ -223,6 +217,7 @@ impl Board {
             nodes,
             roads,
             hexes,
+            robber,
             supply
         }
     }
