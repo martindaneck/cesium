@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::fs::File;
 use std::collections::HashMap;
+use rand::prelude::*;
 
 use crate::player::*;
 
@@ -115,11 +116,11 @@ impl Board {
 
     fn create_supply() -> Supply {
         let mut resources: HashMap<ResourceType, u8> = HashMap::new();
-        resources.insert(ResourceType::Wheat, 0);
-        resources.insert(ResourceType::Ore, 0);
-        resources.insert(ResourceType::Sheep, 0);
-        resources.insert(ResourceType::Brick, 0);
-        resources.insert(ResourceType::Wood, 0);
+        resources.insert(ResourceType::Wheat, 19);
+        resources.insert(ResourceType::Ore, 19);
+        resources.insert(ResourceType::Sheep, 19);
+        resources.insert(ResourceType::Brick, 19);
+        resources.insert(ResourceType::Wood, 19);
         
         let mut development_cards: Vec<DevelopmentCardType> = Vec::new();
         for _ in 0..2 { development_cards.push(DevelopmentCardType::Invention); }
@@ -127,7 +128,8 @@ impl Board {
         for _ in 0..2 { development_cards.push(DevelopmentCardType::RoadBuilding); }
         for _ in 0..5 { development_cards.push(DevelopmentCardType::VictoryPoint); }
         for _ in 0..14 { development_cards.push(DevelopmentCardType::Knight); }
-        // TODO: shuffle
+        // shuffle
+        development_cards.shuffle(&mut rand::rng());
 
         Supply {
             resources,

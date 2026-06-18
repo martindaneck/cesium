@@ -62,18 +62,18 @@ impl Game {
             for _ in 0..self.players_ordering.len() {
                 self.starting_turn();
                 self.current_player += 1;
-                self.round += 1;
-                return;
             }
+            self.round += 1;
+            return;
         } else if self.round == 1 { // second round
+            self.current_player = self.players_ordering.len() - 1;
             for _ in 0..self.players_ordering.len() {
-                self.current_player = self.players_ordering.len() - 1;
                 self.starting_turn(); 
-                if self.rules.collect_start_resources { self.collect_starting_resources(); }
-                self.current_player = self.current_player - 1;
-                self.round += 1;
-                return;
+                if self.rules.collect_start_resources { self.collect_starting_resources(); } // method yet to be implemented
+                self.current_player -= 1;
             }
+            self.round += 1;
+            return;
         }
 
         // regular rounds
@@ -89,19 +89,21 @@ impl Game {
         self.players[ self.players_ordering[self.current_player] ].controller.respond(
             self.create_view(self.current_player), 
             Decision { 
-                request: (PlayerRequest::InitialSettlement), 
+                request: (PlayerRequest::FreeSettlement), 
                 legal_responses: self.list_legal_settlements(true) }
         );
         // choose free road
         self.players[ self.players_ordering[self.current_player] ].controller.respond(
             self.create_view(self.current_player), 
             Decision { 
-                request: (PlayerRequest::InitialRoad), 
+                request: (PlayerRequest::FreeRoad), 
                 legal_responses: self.list_legal_roads(true) }
         );
     }
 
     pub fn turn(&mut self) { // all a player does in their turn
+        
+
         // production phase
         if !self.rules.turn_start_roll_dice { 
             // play development card (optional)
@@ -118,7 +120,39 @@ impl Game {
         
         // action phase
         // trade/build stuff/development cards/spam VP cards
-        // check win condition
+        loop {
+            
+
+            let mut actions = vec![PlayerResponse::EndTurn];
+            actions.extend(self.list_legal_settlements(false));
+            actions.extend(self.list_legal_roads(false));
+            actions.extend(self.list_legal_cities());
+            actions.extend(self.can_buy_development_card());
+            actions.extend(self.list_legal_development_cards());
+            actions.extend(self.list_legal_supply_trades());
+            // deal with player trades later
+
+            let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+                self.create_view(self.current_player), 
+                Decision { 
+                    request: PlayerRequest::Turn, 
+                    legal_responses: actions }
+            );
+
+            // handle action
+            self.handle_action(action);
+
+            // develop cards
+            let player = &mut self.players[self.players_ordering[self.current_player]];
+            player.state.developed_cards.append(&mut player.state.developing_cards);
+            
+            // check win condition for this player 
+
+            // end turn
+            if let PlayerResponse::EndTurn = action {
+                break;
+            }
+        }
     }
 
     pub fn roll_dice(&mut self) -> u8 {
@@ -144,7 +178,7 @@ impl Game {
 
             let resource: &ResourceType = &hex.resource;
 
-            if !self.rules.infinite_resource_supply {
+            if !self.rules.infinite_resource_supply { // works only if there are no two hexes with same number+resource
                 let mut amount_to_give = 0;
 
                 for node_id in hex.nodes.iter() {
@@ -171,7 +205,7 @@ impl Game {
     }
 
     pub fn resolve_seven(&mut self) {
-        // prompt players to give away resources
+        // 1. discard resources
         for p in 0..self.players.len() {
             let n_resources = self.players[ self.players_ordering[p] ].state.resources.values().sum::<u8>();
             if n_resources <= 7 { continue; }
@@ -199,6 +233,13 @@ impl Game {
             }
         }
 
+        // 2. activate robber
+        self.activate_robber();
+
+        
+    }
+
+    pub fn activate_robber(&mut self) {
         // move robber
         let actions = self.list_legal_hexes();
         let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
@@ -215,14 +256,12 @@ impl Game {
         // steal resource
         let mut actions = Vec::new();
 
-        for p in 0..self.players.len() {
-            for node in self.board.hexes[self.board.robber as usize].nodes.iter() {
-                if self.players_ordering[p] != PlayerNumber::None // if a different player has a settlement next to robber
-                    && self.players_ordering[p] != self.players_ordering[self.current_player]
-                    && !actions.contains(&PlayerResponse::StealResource(p)) // and said player isn't already in actions
-                {
-                    actions.push(PlayerResponse::StealResource(p));
-                }
+        for node in self.board.hexes[self.board.robber as usize].nodes.iter() {
+            if self.board.nodes[*node as usize].occupant != PlayerNumber::None // if a different player has a settlement next to robber
+                && self.board.nodes[*node as usize].occupant != self.players_ordering[self.current_player]
+                && !actions.contains(&PlayerResponse::StealResource(self.board.nodes[*node as usize].occupant)) // and said player isn't already in actions
+            {
+                actions.push(PlayerResponse::StealResource(self.board.nodes[*node as usize].occupant));
             }
         }
 
@@ -239,7 +278,7 @@ impl Game {
         if let PlayerResponse::StealResource(p) = action {
             let mut choices = Vec::new();
 
-            for (&resource, &count) in &self.players[ self.players_ordering[p] ].state.resources {
+            for (&resource, &count) in &self.players[p].state.resources {
                 for _ in 0..count {
                     choices.push(resource);
                 }
@@ -250,10 +289,104 @@ impl Game {
 
             let picked = choices.choose(&mut self.rng).unwrap();
             *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(picked).unwrap() += 1;
-            *self.players[ self.players_ordering[p] ].state.resources.get_mut(picked).unwrap() -= 1;
+            *self.players[p].state.resources.get_mut(picked).unwrap() -= 1;
         }
     }
 
+    pub fn handle_action(&mut self, action: PlayerResponse) {
+        match action {
+            PlayerResponse::EndTurn => { },
+            PlayerResponse::BuildSettlement(node) => { self.board.nodes[node as usize].occupant = self.players_ordering[self.current_player]; },
+            PlayerResponse::BuildCity(node) => { self.board.nodes[node as usize].city = true; },
+            PlayerResponse::BuildRoad(road) => { self.board.roads[road as usize].occupant = self.players_ordering[self.current_player]; },
+            PlayerResponse::SupplyTrade(resource_to_give, cost, resource_to_receive) => {
+                *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(&resource_to_give).unwrap() -= cost;
+                *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(&resource_to_receive).unwrap() += 1;
+                *self.board.supply.resources.get_mut(&resource_to_give).unwrap() += cost;
+                *self.board.supply.resources.get_mut(&resource_to_receive).unwrap() -= 1;
+            },
+            PlayerResponse::BuyDevelopmentCard => {
+                self.players[ self.players_ordering[self.current_player] ].state.developing_cards.push(
+                    self.board.supply.development_cards.pop().unwrap()
+                );
+            },
+            PlayerResponse::UseDevelopmentCard(card) => { self.handle_development_card(card); },
+            PlayerResponse::ProposePlayerTrade(a,b ,c ,d ,e ) => {
+                // TODO, implement and deal with player trades later
+            },
+            _ => {} // not possible
+        }
+    }
+
+    pub fn handle_development_card(&mut self, card: DevelopmentCardType) {
+        match card {
+            DevelopmentCardType::RoadBuilding => {
+                for _ in 0..2 {
+                    let actions = self.list_legal_roads(true);
+                    let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+                        self.create_view(self.current_player), 
+                        Decision { 
+                            request: PlayerRequest::FreeRoad, 
+                            legal_responses: actions }
+                    );
+
+                    if let PlayerResponse::BuildRoad(road) = action {
+                        self.board.roads[road as usize].occupant = self.players_ordering[self.current_player];
+                    }
+                }
+            },
+            DevelopmentCardType::Monopoly => {
+                let actions = vec![ResourceType::Wheat, ResourceType::Sheep, ResourceType::Wood, ResourceType::Brick, ResourceType::Ore]
+                        .into_iter()
+                        .map(|r| PlayerResponse::Monopoly(r))
+                        .collect();
+
+                let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+                    self.create_view(self.current_player), 
+                    Decision { 
+                        request: PlayerRequest::Monopoly,
+                        legal_responses: actions
+                    }
+                );   
+
+                if let PlayerResponse::Monopoly(resource) = action {
+                    for p in 0..self.players.len() {
+                        if p == self.current_player { continue; }
+
+                        *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(&resource).unwrap() += 
+                            self.players[ self.players_ordering[p] ].state.resources[&resource];
+                        *self.players[ self.players_ordering[p] ].state.resources.get_mut(&resource).unwrap() = 0;
+                    }
+                }
+            },
+            DevelopmentCardType::Invention => {
+                for _ in 0..2 {
+                    let actions = vec![ResourceType::Wheat, ResourceType::Sheep, ResourceType::Wood, ResourceType::Brick, ResourceType::Ore]// each resource type
+                            .into_iter()
+                            .filter(|r| self.board.supply.resources[r] > 0)
+                            .map(|r| PlayerResponse::Invention(r))
+                            .collect();
+
+                    let action = self.players[ self.players_ordering[self.current_player] ].controller.respond(
+                        self.create_view(self.current_player), 
+                        Decision { 
+                            request: PlayerRequest::Invention,
+                            legal_responses: actions
+                        }
+                    );         
+
+                    if let PlayerResponse::Invention(resource) = action {
+                        *self.players[ self.players_ordering[self.current_player] ].state.resources.get_mut(&resource).unwrap() += 1;
+                        *self.board.supply.resources.get_mut(&resource).unwrap() -= 1;
+                    }
+                }
+            },
+            DevelopmentCardType::VictoryPoint => {
+                // TODO
+            },
+            DevelopmentCardType::Knight => { self.activate_robber(); }
+        }
+    }
 
     // LEGALITY LOGIC
     pub fn list_legal_settlements(&self, game_start: bool) -> Vec<PlayerResponse> {
@@ -348,7 +481,7 @@ impl Game {
         legal_hexes
     }
 
-    pub fn can_buy_development_card(&self) -> Vec<PlayerResponse> {
+    pub fn can_buy_development_card(&self) -> Vec<PlayerResponse> { // vector for easier code
         let mut card_legal = Vec::new();
 
         let cost = Building::DevelopmentCard.cost();
@@ -357,6 +490,8 @@ impl Game {
                 return card_legal; // player broke, can't buy development card, return empty vector
             }
         }
+
+        if self.board.supply.development_cards.is_empty() { return card_legal; } // no more cards
 
         card_legal.push(PlayerResponse::BuyDevelopmentCard);
 
@@ -369,6 +504,7 @@ impl Game {
         let cards = &self.players[ self.players_ordering[self.current_player] ].state.developed_cards;
 
         for card in cards.iter(){
+            if legal_development_cards.contains(&PlayerResponse::UseDevelopmentCard(*card)) { continue; } // don't add unless there
             legal_development_cards.push(PlayerResponse::UseDevelopmentCard(*card));
         }
 
@@ -395,8 +531,8 @@ impl Game {
             if owned_resources[resource_type] < cost { continue; } 
 
             for resource_type_to_receive in owned_resources.keys() {
-                if resource_type_to_receive != resource_type {
-                    legal_supply_trades.push(PlayerResponse::SupplyTrade(*resource_type, *resource_type_to_receive));
+                if resource_type_to_receive != resource_type && self.board.supply.resources[resource_type_to_receive] > 0 {
+                    legal_supply_trades.push(PlayerResponse::SupplyTrade(*resource_type, cost, *resource_type_to_receive));
                 }
             }
             

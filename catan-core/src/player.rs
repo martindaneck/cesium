@@ -30,8 +30,9 @@ impl Player {
                 largest_army: 0,
                 has_longest_road: false,
                 has_largest_army: false,
-                developing_card: None,
+                developing_cards: Vec::new(),
                 developed_cards: Vec::new(),
+                played_a_development_card: false
             },
             controller: controller
         }
@@ -54,14 +55,9 @@ pub struct PlayerState { //implements a player state - everything he owns/has or
     pub has_longest_road: bool, // the VP card
     pub has_largest_army: bool, // the VP card
 
-    pub developing_card: Option<DevelopmentCardType>,
+    pub developing_cards: Vec<DevelopmentCardType>,
     pub developed_cards: Vec<DevelopmentCardType>,
-}
-
-impl PlayerState { // helper method
-    pub fn resource_count(&self) -> u8 { // sum of all resources for robber logic
-        self.resources.values().sum()
-    }
+    pub played_a_development_card: bool,
 }
 
 pub struct PlayerView { // everything a player can see from the whole game state, Game makes this for each player every action taken
@@ -112,13 +108,16 @@ pub struct Decision {
 }
 
 pub enum PlayerRequest {
-    InitialSettlement,
-    InitialRoad,
+    FreeSettlement,
+    FreeRoad,
     Turn, // build stuff/trade/development cards/propose player trades
     DiscardResources(u8), // discard X resources
     RespondToTrade,
     MoveRobber,
     StealResource,
+
+    Invention,
+    Monopoly
 }
 
 #[derive(Copy, Clone, PartialEq)]
@@ -128,7 +127,7 @@ pub enum PlayerResponse {
     BuildSettlement(u8), // settlement id
     BuildRoad(u8), // road id
     BuildCity(u8), // settlement id
-    SupplyTrade(ResourceType, ResourceType), // 1. resource to give (amount decided by port logic), 2. resource to receive
+    SupplyTrade(ResourceType, u8, ResourceType), // 1. resource to give, 2. cost, 3. resource to receive
     ProposePlayerTrade(PlayerNumber, ResourceType, u8, ResourceType, u8), // REDESIGN AND IMPLEMENT LATER // 1. player to trade with, 2. resource to give, 3. amount, 4. resource to receive, 5. amount
     BuyDevelopmentCard,
     UseDevelopmentCard(DevelopmentCardType),
@@ -137,5 +136,8 @@ pub enum PlayerResponse {
     DiscardResource(ResourceType), // discard a resource when prompted
     MoveRobber(u8), // hex id
     RespondToPlayerTrade(bool), // true = accept, false = reject
-    StealResource(usize), // player index
+    StealResource(PlayerNumber), // player number
+
+    Monopoly(ResourceType),
+    Invention(ResourceType)
 }
